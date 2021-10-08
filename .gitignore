@@ -1,0 +1,5 @@
+*.jpg
+*.jpeg
+
+data/
+autoencoder/UGRP_AutoEncoder/data/
