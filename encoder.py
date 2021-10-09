@@ -73,9 +73,9 @@ class Encoder(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
 
-        f2 = self.avgpool(x)     # 1/2, 64 channels
+        x = self.avgpool(x)     # 1/2, 64 channels
 
-        x = self.res1(f2)
+        x = self.res1(x)
         x = self.bn2(x)
         x = self.relu(x)
 
@@ -86,9 +86,9 @@ class Encoder(nn.Module):
         x = self.avgpool(x)
 
         x = self.res3(x)
-        f4 = self.relu(x)       # 1/4, 32 channels
+        out = self.relu(x)       # 1/4, 32 channels
 
-        return f2, f4
+        return out
 
 
 class Decoder(nn.Module):
@@ -100,9 +100,6 @@ class Decoder(nn.Module):
 
         self.conv_T_2_1 = nn.ConvTranspose2d(256, 256, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.bn2 = nn.BatchNorm2d(256)
-
-        self.skipconv_f2 = Conv3x3(64, 256)
-        self.bn_f2 = nn.BatchNorm2d(256)
 
         self.conv_f4 = Conv3x3(32, 256)
         self.bn_f4 = nn.BatchNorm2d(256)
@@ -117,7 +114,7 @@ class Decoder(nn.Module):
 
         self.relu = nn.ReLU()
 
-    def forward(self, f2, f4):
+    def forward(self, f4):
         f4 = self.conv_f4(f4)
         f4 = self.bn_f4(f4)
         f4 = self.relu(f4)
@@ -126,11 +123,6 @@ class Decoder(nn.Module):
         f4_2 = self.bn1(f4_2)
         f4_2 = self.relu(f4_2)
 
-        f2 = self.skipconv_f2(f2)
-        f2 = self.bn_f2(f2)
-        f2 = self.relu(f2)
-
-        f4_2 = f4_2 + f2
         f4_2 = self.conv_f4_2(f4_2)
         f4_2 = self.bn_f4_2(f4_2)
         f4_2 = self.relu(f4_2)
@@ -156,7 +148,7 @@ class AutoEncoder(nn.Module):
         self.decoder = Decoder()
 
     def forward(self, x):
-        f2, f4 = self.encoder(x)
-        out = self.decoder(f2, f4)
+        embedding = self.encoder(x)
+        out = self.decoder(embedding)
 
         return out

@@ -8,7 +8,7 @@ from torchvision.transforms.functional import crop
 from encoder import AutoEncoder
 
 class EncoderEstimator(nn.Module):
-    def __init__(self, pretrained="autoencoder/UGRP_AutoEncoder/checkpoint/checkpoint_2021_10_08_03:20:11/checkpoint_2021_10_08_03:20:11.pth"):
+    def __init__(self, pretrained="autoencoder/UGRP_AutoEncoder/checkpoint/checkpoint_2021_10_09_04:42:23/checkpoint_2021_10_09_04:42:23_epoch_70.pth"):
         super().__init__()
         self.autoencoder = AutoEncoder()
         self.autoencoder.load_state_dict(torch.load(pretrained)['model_state_dict'])
@@ -107,18 +107,21 @@ class EncoderEstimator(nn.Module):
     # target key vector와 query key map이 주어지면,
     # query key map의 좌표별 key vector와 target key vector 사이의 eudlidean distance를 계산하여
     # distance matrix를 만들어 리턴한다.
-    def calc_distance(self, target, target_point, query):
+    def calc_distance(self, target, target_point, query, weighted=True):
         distance = torch.norm((query - target), dim=1)
-        weight_map = self.make_weight_map(target_point)
-        distance = distance * weight_map
+        if weighted:
+            weight_map = self.make_weight_map(target_point)
+            distance = distance * weight_map
+
         return distance
 
 
     def get_dist_map(self, target, target_point, query):
-        distance_map = self.calc_distance(target, target_point, query)
+        distance_map = self.calc_distance(target, target_point, query, weighted=False)
         distance_map = distance_map.reshape(4096)
         distance_map = softmax(distance_map, dim=0)
         distance_map = distance_map.reshape(1, 64, 64)
+
         return distance_map
 
 
