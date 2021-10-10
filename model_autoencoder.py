@@ -8,7 +8,7 @@ from torchvision.transforms.functional import crop
 from encoder import AutoEncoder
 
 class EncoderEstimator(nn.Module):
-    def __init__(self, pretrained="autoencoder/UGRP_AutoEncoder/checkpoint/checkpoint_2021_10_09_04:42:23/checkpoint_2021_10_09_04:42:23_epoch_70.pth"):
+    def __init__(self, pretrained="autoencoder/UGRP_AutoEncoder/checkpoint/checkpoint_2021_10_09_04:42:23/checkpoint_2021_10_09_04:42:23_epoch_70.pth", crop_size = (3, 3)):
         super().__init__()
         self.autoencoder = AutoEncoder()
         self.autoencoder.load_state_dict(torch.load(pretrained)['model_state_dict'])
@@ -26,23 +26,23 @@ class EncoderEstimator(nn.Module):
             if annot[i] == 0:
                 annot_downsampled.append(0)
             else:
-                annot_downsampled.append(((annot[i][1] // 4), (annot[i][0] // 4)))
+                annot_downsampled.append(((annot[i][0] // 4), (annot[i][1] // 4)))
 
         return annot_downsampled
 
 
     def get_keys(self, frame, annot):        # frame image(256x256)와 annotation(256x256)을 주면, 관절에 해당하는 key vectors를 뽑아준다.
-        keymap = self.encoder(frame)[1]
+        keymap = self.encoder(frame)
         annot = self.downsample_annot(annot)
 
         keys = []
         for i in range(len(annot)):
             if annot[i] == 0:
-                # keys.append(torch.zeros(1, 32, 1, 1).cuda())
-                keys.append(torch.zeros(1, 32, 1, 1))
+                keys.append(torch.zeros(1, 32, 1, 1).cuda())
+                # keys.append(torch.zeros(1, 32, 1, 1))
             else:
-                # keys.append(crop(keymap, annot[i][1], annot[i][0], 1, 1).cuda())
-                keys.append(crop(keymap, annot[i][1], annot[i][0], 1, 1))
+                keys.append(crop(keymap, annot[i][1], annot[i][0], 1, 1).cuda())
+                # keys.append(crop(keymap, annot[i][1], annot[i][0], 1, 1))
         
         return keys
 
@@ -53,8 +53,8 @@ class EncoderEstimator(nn.Module):
 
 
     def make_weight_map(self, keypoint):
-        # weight_map = 10 * torch.ones(1, 64, 64).cuda()
-        weight_map = 10 * torch.ones(1, 64, 64)
+        weight_map = 10 * torch.ones(1, 64, 64).cuda()
+        # weight_map = 10 * torch.ones(1, 64, 64)
         kp_x, kp_y = keypoint
         weight = 0.5
 
@@ -104,9 +104,9 @@ class EncoderEstimator(nn.Module):
         return weight_map
 
 
-    # target key vector와 query key map이 주어지면,
+    # target key vector(1x1x32)와 query key map(64x64x32)이 주어지면,
     # query key map의 좌표별 key vector와 target key vector 사이의 eudlidean distance를 계산하여
-    # distance matrix를 만들어 리턴한다.
+    # distance map(64x64x1)을 만들어 리턴한다.
     def calc_distance(self, target, target_point, query, weighted=True):
         distance = torch.norm((query - target), dim=1)
         if weighted:
@@ -116,21 +116,21 @@ class EncoderEstimator(nn.Module):
         return distance
 
 
-    def get_dist_map(self, target, target_point, query):
-        distance_map = self.calc_distance(target, target_point, query, weighted=False)
+    def get_dist_map(self, target, target_point, query, weighted=True):
+        distance_map = self.calc_distance(target, target_point, query, weighted=weighted)
         distance_map = distance_map.reshape(4096)
         distance_map = softmax(distance_map, dim=0)
-        distance_map = distance_map.reshape(1, 64, 64)
+        distance_map = distance_map.reshape(64, 64)
 
         return distance_map
 
 
     def forward(self, query):
-        keymap_query = self.encoder(query)[1]      # query image로부터 query key map을 생성한다.
+        keymap_query = self.encoder(query)          # query image로부터 query key map을 생성한다.
         joints = []
-        for i in range(len(self.memory_keys)):       # 각각의 joint에 대해 !!! memory[i]가 0일 경우 추가!
-            # if torch.all(self.memory_keys[i] == torch.zeros(1, 32, 1, 1).cuda()):
-            if torch.all(self.memory_keys[i] == torch.zeros(1, 32, 1, 1)):
+        for i in range(len(self.memory_keys)):
+            if torch.all(self.memory_keys[i] == torch.zeros(1, 32, 1, 1).cuda()):
+            # if torch.all(self.memory_keys[i] == torch.zeros(1, 32, 1, 1)):
                 joints.append(None)
                 continue
 
@@ -152,6 +152,6 @@ class EncoderEstimator(nn.Module):
             scaled_min_idx = int(torch.argmin(distance_x4))
             scaled_min_vertical = scaled_min_idx // 256
             scaled_min_horizontal = scaled_min_idx % 256
-            joints.append((scaled_min_vertical, scaled_min_horizontal))
+            joints.append((scaled_min_horizontal, scaled_min_vertical))
         
         return joints
