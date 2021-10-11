@@ -59,6 +59,8 @@ cap = cv2.VideoCapture("sample_joohyun.mp4")
 
 while cap.isOpened():
     ret, frame = cap.read()
+    if not ret:
+        break
     
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(frame)
