@@ -4,3 +4,5 @@
 data/
 autoencoder/UGRP_AutoEncoder/data/
 runs/
+sample_videos/
+__pycache__/
